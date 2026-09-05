@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+*.local
+*.tsbuildinfo
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+coverage/
+.DS_Store

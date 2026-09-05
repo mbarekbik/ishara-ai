@@ -1,0 +1,22 @@
+{
+  "name": "@ishara/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6",
+    "@types/node": "^24.10.1",
+    "@types/express": "^5.0.5",
+    "vitest": "^4.0.14"
+  }
+}
