@@ -29,7 +29,7 @@ export function MessageItem({
         </span>
         <strong>
           {message.sender.kind === "assistant"
-            ? t("assistant")
+            ? t(message.source === "mock" ? "assistant" : "aiTitle")
             : participant
               ? t(participant.labelKey)
               : message.sender.id}
@@ -48,6 +48,7 @@ export function MessageItem({
         <span>{t(message.inputType)}</span>
         {message.source === "mock" && <span>{t("mock")}</span>}
         {message.source === "service" && message.inputType === "voice" && <span>{t("transcribed")}</span>}
+        {message.source === "service" && message.inputType === "ai" && <span>{t("aiGenerated")}</span>}
       </div>
     </li>
   );

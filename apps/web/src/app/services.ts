@@ -3,6 +3,8 @@ import { createMockSpeechService } from "../features/voice/mockSpeechService";
 import { createMockAIService } from "../features/ai/mockAIService";
 import { createGeminiLiveSpeechService } from "../features/voice/geminiLiveSpeechService";
 import type { SpeechService } from "../features/voice/service";
+import { createGeminiConversationService } from "../features/ai/geminiConversationService";
+import type { AIService } from "../features/ai/service";
 // One composition point; create fresh adapters for each session.
 export function createServices(): Services {
   return {
@@ -10,11 +12,13 @@ export function createServices(): Services {
     speech: createMockSpeechService(),
     realSpeech: createGeminiLiveSpeechService(),
     ai: createMockAIService(),
+    realAI: createGeminiConversationService(),
   };
 }
 export interface Services {
   sign: ReturnType<typeof createMockSignService>;
   speech: SpeechService;
   realSpeech?: SpeechService;
-  ai: ReturnType<typeof createMockAIService>;
+  ai: AIService;
+  realAI?: AIService;
 }

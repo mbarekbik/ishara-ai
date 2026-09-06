@@ -1,15 +1,17 @@
 import type { CommunicationSession } from "./model";
 import type { AIService } from "../ai/service";
-import { DemoReplyButton } from "../ai/DemoReplyButton";
+import { AIReplyPanel } from "../ai/AIReplyPanel";
 import { MessageItem } from "./MessageItem";
 import { useTranslation } from "../../i18n/useTranslation";
 import { Icon } from "../../components/Icon";
 export function ConversationHistory({
   session,
   ai,
+  realAI,
 }: {
   session: CommunicationSession;
   ai: AIService;
+  realAI?: AIService;
 }) {
   const { t, locale } = useTranslation();
   return (
@@ -45,12 +47,10 @@ export function ConversationHistory({
           <p>{t("emptyHistoryBody")}</p>
         </div>
       )}
-      <DemoReplyButton
+      <AIReplyPanel
         service={ai}
+        realService={realAI}
         sessionId={session.id}
-        enabled={session.messages.some(
-          (message) => message.sender.kind === "human",
-        )}
       />
     </aside>
   );

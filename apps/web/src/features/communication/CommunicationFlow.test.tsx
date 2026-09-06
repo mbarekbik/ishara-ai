@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { LocaleProvider } from "../../i18n/LocaleProvider";
@@ -12,6 +12,7 @@ import { createMockSpeechService } from "../voice/mockSpeechService";
 import { createMockAIService } from "../ai/mockAIService";
 import type { Services } from "../../app/services";
 import type { RecognitionResult } from "./interaction";
+import { AI_LIMITS, type AIService } from "../ai/service";
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   useSessionStore.setState({ session: null });
@@ -78,7 +79,7 @@ test("sign and voice share a session; sender choice is independent; assistant is
     "Where do you feel pain?",
   );
   await user.click(
-    screen.getByRole("button", { name: "Show demo assistant reply" }),
+    screen.getByRole("button", { name: "Ask Ishara AI" }),
   );
   await waitFor(() =>
     expect(useSessionStore.getState().session!.messages).toHaveLength(3),
@@ -226,4 +227,61 @@ test("denied camera access leaves a fully usable demo fallback", async () => {
   await waitFor(() =>
     expect(useSessionStore.getState().session!.messages).toHaveLength(1),
   );
+});
+
+test.each(["reset", "mode"])("%s cancels pending Real AI before late completion without losing human history", async (action) => {
+  let complete!: (result: RecognitionResult) => void;
+  const reply = vi.fn<AIService["reply"]>(() => new Promise((resolve) => { complete = resolve; }));
+  const user = setup("voice", {
+    sign: createMockSignService({ delayMs: 1 }),
+    speech: createMockSpeechService({ delayMs: 1 }),
+    ai: createMockAIService({ delayMs: 1 }),
+    realAI: {
+      kind: "service", reply,
+      getConfig: async () => ({ enabled: true, responseLanguages: ["auto", "en", "ar"], limits: AI_LIMITS }),
+    },
+  });
+  await user.click(await screen.findByRole("button", { name: "Start Speaking" }));
+  await user.click(screen.getByRole("button", { name: "Stop Speaking" }));
+  await waitFor(() => expect(useSessionStore.getState().session!.messages).toHaveLength(1));
+  const sessionId = useSessionStore.getState().session!.id;
+  await user.click(screen.getByRole("button", { name: "Ask Ishara AI" }));
+  expect(reply).toHaveBeenCalledTimes(1);
+  const signal = reply.mock.calls[0][0].signal;
+  if (action === "reset") {
+    await user.click(screen.getByRole("button", { name: "New conversation" }));
+    expect(signal.aborted).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Keep conversation" }));
+  } else {
+    await user.click(screen.getByRole("link", { name: "Sign Language" }));
+    expect(signal.aborted).toBe(true);
+  }
+  await act(async () => complete({ text: "An obsolete reply.", language: "en", source: "service" }));
+  expect(useSessionStore.getState().session!.id).toBe(sessionId);
+  expect(useSessionStore.getState().session!.messages).toHaveLength(1);
+  expect(screen.queryByText("An obsolete reply.")).toBeNull();
+});
+
+test("real assistant attribution appears once in shared history and keeps prior messages", async () => {
+  const user = setup("voice", {
+    sign: createMockSignService({ delayMs: 1 }),
+    speech: createMockSpeechService({ delayMs: 1 }),
+    ai: createMockAIService({ delayMs: 1 }),
+    realAI: {
+      kind: "service",
+      getConfig: async () => ({ enabled: true, responseLanguages: ["auto", "en", "ar"], limits: AI_LIMITS }),
+      reply: async () => ({ text: "What would you like help explaining?", language: "en", source: "service" }),
+    },
+  });
+  await user.click(await screen.findByRole("button", { name: "Start Speaking" }));
+  await user.click(screen.getByRole("button", { name: "Stop Speaking" }));
+  await waitFor(() => expect(useSessionStore.getState().session!.messages).toHaveLength(1));
+  await user.click(screen.getByRole("button", { name: "Ask Ishara AI" }));
+  await waitFor(() => expect(useSessionStore.getState().session!.messages).toHaveLength(2));
+  const history = within(screen.getByRole("list"));
+  expect(history.getAllByText("What would you like help explaining?")).toHaveLength(1);
+  expect(history.getByText("Ishara AI")).toBeVisible();
+  expect(history.getByText("AI-generated reply")).toBeVisible();
+  expect(history.getByText("Where do you feel pain?")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Ask Ishara AI" })).toBeDisabled();
 });

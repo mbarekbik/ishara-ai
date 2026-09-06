@@ -92,7 +92,7 @@ function SessionView({
         ) : (
           <VoicePanel session={session} service={services.speech} realService={services.realSpeech} />
         )}
-        <ConversationHistory session={session} ai={services.ai} />
+        <ConversationHistory session={session} ai={services.ai} realAI={services.realAI} />
       </div>
       <div className="prototype-note session-disclosure">
         <Icon name="spark" size={18} />

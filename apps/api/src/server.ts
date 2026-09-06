@@ -2,8 +2,8 @@ import { createApp } from "./app.js";
 import { readConfig } from "./config.js";
 import { loadApiEnvironment } from "./loadEnvironment.js";
 loadApiEnvironment();
-const { port, live } = readConfig();
-const app = createApp(live);
+const { port, live, conversation } = readConfig();
+const app = createApp(live, undefined, conversation);
 const server = app.listen(port, "127.0.0.1", () => {
   console.info(`Ishara API listening on http://127.0.0.1:${port}`);
 });

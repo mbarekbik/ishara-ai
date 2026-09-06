@@ -1,6 +1,6 @@
 # Ishara AI
 
-An English/Arabic, browser-first communication prototype for GatewayHacks 2026’s Accessibility & Health track. Sign and Voice share one in-memory conversation. Scope 2 adds real Google Gemini Voice transcription alongside the preserved Scope 1 Sign and explicit Voice demo experiences.
+An English/Arabic, browser-first communication prototype for GatewayHacks 2026’s Accessibility & Health track. Sign and Voice share one in-memory conversation. Scope 2 adds real Google Gemini Voice transcription. Scope 3 adds an explicit, context-aware text assistant; Sign recognition, Voice Demo, and the fixed assistant Demo remain available.
 
 ## Run locally
 
@@ -41,7 +41,7 @@ The simulated demo needs no credentials. Real Voice needs the server configurati
 4. Choose **Start Signing**, then **Stop Signing**. After 800 ms, the first result is “I have an appointment today.” It enters history once.
 5. Switch to **Voice / Speech**. The same history stays visible.
 6. Explicitly select **Demo — simulated**, then choose **Start Speaking** and **Stop Speaking**. The first result is “Where do you feel pain?” No microphone request occurs.
-7. Optionally choose **Show demo assistant reply** for the fixed response “Thank you. Please continue.”
+7. In the assistant panel, explicitly select **Simulated Demo**, then **Ask Ishara AI** for the fixed response “Thank you. Please continue.”
 8. Switch to **العربية**. The layout becomes RTL, while previous messages retain their original text and language. New turns use Arabic fixtures.
 9. Use **Speaking as** to select either participant independently of input mode.
 10. **New conversation** asks before discarding existing messages. Refreshing immediately creates a clean session without a confirmation prompt.
@@ -50,7 +50,7 @@ In the demo sequence above, recognition, transcripts, and assistant replies are 
 
 ## Privacy and camera behavior
 
-- Messages and participant data exist only in Zustand memory. They are not stored in localStorage, sessionStorage, IndexedDB, files, or the API.
+- Conversation history exists only in Zustand memory. It is not persisted in browser storage, files, or an API database. Real AI explicitly sends a bounded selection of completed messages through the API to Google; the API processes this context transiently without logging or storing it. Local session IDs and participant labels remain in the browser.
 - Only the interface language is stored in `localStorage`, under `ishara.locale.v1`. If storage is unavailable, the language still works in memory.
 - The camera requests video only, after an explicit action. It is not recorded, sampled by a model, or uploaded. There are no analytics or external fonts/assets.
 - Camera tracks stop when leaving Sign mode, resetting, turning the camera off, choosing the camera-free demo, unmounting, hiding the page, or leaving the page.
@@ -71,15 +71,16 @@ apps/web/src/
   features/communication/   Domain, session store, capture lifecycle, history
   features/sign/            Sign controller, mock adapter, camera hook and preview
   features/voice/           Voice controller, real/mock adapters, PCM capture and Live transport
-  features/ai/              Explicit fixed assistant demo
+  features/ai/              Bounded context, real/demo assistant services, revision-aware controller and UI
   mocks/                    Sample phrases, abortable delays and mock operations
   test/                     Test environment setup
 apps/api/src/
-  app.ts                    Express health, readiness and constrained credential endpoints
+  app.ts                    Express composition: health, Live credentials and conversation endpoints
+  conversation/             Stateless text-generation boundary, validation and access limits
   server.ts                 Process startup and shutdown
 ```
 
-No shared package exists because the API does not consume the communication model. Extract genuine common contracts when it does. There are no database, authentication, Python, or avatar dependencies. The Google SDK is installed only in the API workspace for constrained token issuance.
+No shared package exists: the frontend session model stays separate from the small validated conversation request. There are no database, authentication, Python, or avatar dependencies. The existing Google SDK is installed only in the API workspace for constrained token issuance and stateless text generation.
 
 ### Session and operation lifecycle
 
@@ -98,7 +99,7 @@ No shared package exists because the API does not consume the communication mode
 
 The camera hook owns the MediaStream. The sign port receives the video element to support future frame observation; only the mock demo accepts a null video source. A future MediaPipe/ML adapter can consume frames between begin and finish without moving media ownership into the store. The Voice port now adds phase, draft and asynchronous error callbacks while retaining finish/cancel operations. Its controller commits the completed turn to the existing store.
 
-`useCaptureInteraction` retains the lifecycle used by Sign and the mock assistant. The dedicated Voice controller manages connection phases and draft text; microphone and transport resources remain outside Zustand.
+`useCaptureInteraction` retains the Sign lifecycle. The dedicated Voice controller manages connection phases and draft text; microphone and transport resources remain outside Zustand. `useAIReply` guards both assistant sources against session and conversation revisions, deadlines and late results.
 
 ### Localization and accessibility
 
@@ -108,7 +109,7 @@ The shell updates document `lang`/`dir`, uses logical layout properties, and pre
 
 ## Deployment
 
-`apps/web/dist` is a static SPA. Configure your host to serve `index.html` for `/start`, `/communicate`, and other application paths. Serve over trusted HTTPS for camera use. The API is required only for real Voice credentials. Sign and explicit Demo Voice remain functional if the API is down.
+`apps/web/dist` is a static SPA. Configure your host to serve `index.html` for `/start`, `/communicate`, and other application paths. Serve over trusted HTTPS for camera use. The API is required for real Voice credentials and Real AI responses. Sign and explicit Demo modes remain functional if the API is down.
 
 The local Vite server proxies `/api` to `127.0.0.1:3001` for development checks. This proxy is not part of the production bundle. Route `/api` through a same-origin reverse proxy when deploying Real Voice. The API currently binds to loopback, appropriate behind a same-host proxy; container/public bindings are a later deployment decision.
 
@@ -130,7 +131,7 @@ These manual items must be verified before claiming the full device/accessibilit
 
 ## Scope guard
 
-Scope 2 adds real microphone transcription while preserving the simulated features. MediaPipe, ML inference, signing avatars, Darija, authentication, persistence, clinical recommendations, remote sessions, media uploads, and distributed infrastructure remain outside this work.
+Scopes 2 and 3 add real microphone transcription and explicit communication assistance while preserving the simulated features. MediaPipe, ML inference, signing avatars, Darija, authentication, persistence, clinical recommendations, remote sessions, media uploads, autonomous actions, speech output and distributed infrastructure remain outside this work. No Scope 4 implementation is included.
 
 ## Scope 2 — Real Voice transcription
 
@@ -210,4 +211,121 @@ Automated checks cover API configuration/env loading without reading the secret 
 
 The old `npm run verify:live -w @ishara/api` silence probe is an optional protocol diagnostic only. It is not an acceptance gate and cannot establish speech accuracy/completeness. It reads only a process-supplied credential; the ordinary API startup is the path that loads `.env`.
 
-No transcript/media persistence, translation, reasoning, medical advice, conversational replies, TTS, avatar, sign recognition, authentication or database functionality was added. The existing fixed mock assistant remains an explicit simulation.
+Scope 2 introduced no transcript/media persistence, translation, reasoning, medical advice, conversational replies, TTS, avatar, sign recognition, authentication or database functionality. Scope 3 extends the assistant separately as described below; its fixed Demo remains an explicit simulation.
+
+## Scope 3 — Context-aware communication assistant
+
+Complete a Sign or Voice turn, choose **Real AI** beside Conversation History, select **Auto**, **English**, or **Arabic** response language, and press **Ask Ishara AI**. This is one explicit, non-streaming request. The successful reply appears once as an AI-generated assistant message. Ask is unavailable again until a new human contribution completes. Demo is an explicit alternative with its original fixed reply; real failures never switch to Demo.
+
+### Configuration and API contracts
+
+The existing module-relative Node `loadEnvFile` startup loads `apps/api/.env`; process environment values take precedence. Scope 3 does not change this loader, read the secret file for verification, or modify the real `.env`. It remains ignored by Git. The existing server-only Google credential is reused internally. No new dependency or frontend SDK was installed.
+
+Add or set these **nonsecret** values yourself in the API environment, then restart the API:
+
+```dotenv
+AI_CONVERSATION_ENABLED=true
+AI_ALLOWED_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
+```
+
+The committed default in `.env.example` is `AI_CONVERSATION_ENABLED=false`. Voice's `LIVE_TRANSCRIPTION_ENABLED` and allowed origins remain independent. Without a configured server credential, Real AI stays unavailable even when the enable flag is true. Do not put credentials in React configuration. Run the API and web with the commands above, or `npm run dev` from `C:\Users\peaqock\ishara-ai`.
+
+| Endpoint | Contract |
+| --- | --- |
+| `GET /api/ai/conversation-config` | `{enabled,responseLanguages:["auto","en","ar"],limits:{maxMessages:12,maxMessageBytes:8192,maxTextBytes:16384,maxRequestBytes:65536,maxReplyCodePoints:600}}`; no generation or credentials |
+| `POST /api/ai/respond` | JSON `{responseLanguage,messages:[{speaker,text,language,source}]}`; success `{reply,language}`; failure `{error:{code,retryable,retryAfterSeconds?}}` |
+
+Only `participant-1`, `participant-2`, and `assistant` are accepted speakers. Source is `mock`, `user`, or `service`; assistant context must be real (`service`). Both outer and message objects reject unknown fields. Message language is a bounded valid language tag, including `und`/`mul`. No session IDs, timestamps, participant labels, confidence, UI locale, media or interim text cross this boundary. Replies use `en` or `ar`.
+
+Exact Origin and JSON Content-Type are required on POST. A PowerShell/operator HTTP request must explicitly provide an allowed Origin; `localhost` and `127.0.0.1` are distinct origins. Missing/unmatched Origin returns `403 AI_FORBIDDEN`. Other failures include 400 invalid input/oversized text, 413 serialized body too large, 422 declined/language required, 429 rate/concurrency limits, 503 unavailable, 502 invalid/upstream response, and 504 timeout. Responses are `Cache-Control: no-store`.
+
+Limits count failed attempts too: 6 requests/minute per IP, 30/minute per API instance, 1 active generation per IP and 2 globally. Excess requests return 429 with `Retry-After` and are never queued. Express continues binding to loopback with proxy trust disabled. These controls are for a network-restricted supervised demo and are not authentication.
+
+### Context, provider and lifecycle
+
+The latest completed message must be human-authored. The frontend walks backward through whole messages, omits fixed Demo assistant replies, stops at 12 messages, 8 KiB per message or 16 KiB combined text, then restores chronological order and removes any leading assistant fragment. It never cuts text to fit. The request itself is capped at 64 KiB. An oversized latest message gets an actionable error. The UI displays selected count and omissions before sharing. The backend independently validates the bounds.
+
+The server pins `gemini-3.8-flash` with the existing `@google/genai` Interactions API, low thinking, a 1,024 output-token ceiling, and `store:false`, `stream:false`, `background:false` on every call. It sends no tools, media, provider conversation IDs or previous-interaction chain. Automatic SDK generation retries are disabled. This follows the current [Google text-generation API](https://ai.google.dev/gemini-api/docs/text-generation) and [structured-output contract](https://ai.google.dev/api/interactions-api-v1).
+
+`ISHARA_CONVERSATION_INSTRUCTION_V1` is server-owned. It treats the JSON conversation envelope as untrusted data, preserves attribution and important facts, and requests one short response, normally under 40 words, with at most one clarification question. It forbids diagnosis, treatment, medication changes and autonomous clinical assessment. Explicit urgent help gets only a short suggestion to contact local emergency services or a nearby person, without inventing a number. Prompt-injection-shaped conversation cannot change the configured system instruction; model behavior still requires evaluation.
+
+Structured provider output is `{outcome:"reply"|"declined"|"language_required",text,language:"en"|"ar"|"und"}`. Only a completed interaction with valid final model-output text, nonempty content, supported language and at most 600 Unicode code points succeeds. Reasoning/tool content is ignored. Errors, incomplete, malformed, declined and language-required outputs cannot enter history. Responses render as plain React text, without HTML or Markdown execution.
+
+Auto follows the latest human message's clear language, consulting the same participant's earlier contributions when needed. Ambiguous/mixed/unsupported language requests an explicit English/Arabic choice. Arabic output is Modern Standard Arabic. The response-language choice is independent of interface and spoken-language choices; existing history is never translated. Demo Auto uses supported message-language metadata and also asks for a language when it cannot choose. Darija is not an acceptance claim.
+
+`useAIReply` captures operation ID, session ID, ordered message IDs/revision, response language and Real/Demo source. It invalidates before committing and the existing store rejects stale session IDs and duplicate message IDs. Any new completed message cancels the pending reply and asks the user to Ask again. Cancel, New Conversation request (before confirmation), mode change, navigation, unmount, page hiding/exit and deadlines abort and invalidate the operation. Dismissing reset confirmation preserves completed history but never resumes cancelled work.
+
+Backend generation has a 20-second deadline; frontend requests and controller operations have a 25-second deadline. Timers/listeners and local capacity are released on settlement or cancellation, including when a test adapter ignores AbortSignal. Aborting the browser does not guarantee that provider computation or billing stops.
+
+### Privacy and manual verification
+
+Real AI shares only the selected completed text and minimal attribution through the API to Google. The application neither persists nor logs the context/reply, performs no analytics, caches no reply, and creates no provider-managed conversation chain. `store:false` disables Interactions retrieval storage; it is not a promise of zero provider operational retention. Review the configured project's [Google service terms](https://ai.google.dev/gemini-api/terms). Use fictional adult demonstration content. Responses can be wrong; this prototype is not for medical advice.
+
+To verify the integrated path:
+
+1. Open `http://127.0.0.1:5173/communicate?mode=voice`. Complete a Real Voice turn and confirm that only the final transcript enters history.
+2. Select Real AI and English response language. Ask after “I have an appointment today.” and “My stomach has been hurting since yesterday.” Expect one relevant, short communication response without diagnosis.
+3. Complete another human turn, “On the left side.” Ask again; check that the response relates to the earlier statement without beginning a clinical assessment.
+4. Try a complicated sentence containing negation, Tuesday/Thursday and 3 p.m.; check simpler wording preserves those facts. A diagnosis/medication request should show a boundary error without adding a reply.
+5. Select Arabic while keeping the interface English, then do the reverse. Test Auto with English and Arabic, and unsupported/ambiguous language followed by an explicit language selection.
+6. While generating, Cancel, switch modes, request New Conversation (including Keep conversation), navigate home or hide the page. No cancelled reply may append. A new completed human turn during generation must invalidate the old result.
+7. With API unavailable, check the accessible error and explicit Demo selection. Demo must never send generation context, microphone or camera data. It remains separately labelled.
+8. Check keyboard focus, screen-reader status/errors, narrow viewport, 200% zoom, RTL and mixed-direction history. Recheck real microphone/camera indicators on desktop and Android/iOS over trusted HTTPS.
+
+Scope 3 automated verification passed on September 6, 2026: typecheck, lint, **194 tests (102 API, 92 web)** and production build, including the separate PCM worklet asset. Tests use mocked provider responses and no paid credentials. Scope 1/2 regression tests remain passing, including camera/microphone cleanup, Voice interim/final separation, session preservation and exactly-once results. No Scope 2 capture/transport implementation was changed.
+
+The browser-control tools failed to initialize in this session, so fresh visual, physical-device, screen-reader and microphone-to-AI checks must be distinguished from component tests and direct live HTTP verification. Earlier user-confirmed Scope 2 English/Arabic microphone tests remain recorded above; they do not alone establish the new integrated Scope 3 browser flow.
+
+Live HTTP checks used the running Vite same-origin proxy and the existing API process, without accessing the key. Initial English context and the subsequent "left side" follow-up returned HTTP 200 with short relevant communication responses and no diagnosis. A simplification request also returned a short English response, but changed "unavailable prior to 15:00" to "only after 15:00". The system instruction was strengthened to preserve inclusive/exclusive time boundaries; this refinement still needs a live recheck.
+
+Subsequent diagnosis-boundary and Arabic Auto requests returned Google-origin `429 AI_RATE_LIMITED`, including after waiting; the local API headers still showed unused per-IP/global capacity. No limits were weakened and no alternate model or mock fallback was used. Therefore live Arabic, unsupported-language recovery, injection/clinical boundaries, the tightened simplification instruction and the complete microphone-to-AI browser flow are **not yet accepted**. They require renewed provider capacity and browser testing. Automated language, declined-output, revision/reset, provider-failure and no-fallback cases pass. Generic provider faults remain safely rejected as invalid responses because the provider's general error-code field does not define a reliable safety-specific code; explicit structured declines have their own recoverable error.
+
+### Scope 3 file inventory
+
+All paths below are relative to the only working repository, `C:\Users\peaqock\ishara-ai`.
+
+Created (18 files):
+
+```text
+apps/api/src/config.test.ts
+apps/api/src/conversation/contract.ts
+apps/api/src/conversation/contract.test.ts
+apps/api/src/conversation/context.ts
+apps/api/src/conversation/context.test.ts
+apps/api/src/conversation/systemInstruction.ts
+apps/api/src/conversation/geminiConversationService.ts
+apps/api/src/conversation/geminiConversationService.test.ts
+apps/api/src/conversation/routes.ts
+apps/api/src/conversation/routes.test.ts
+apps/web/src/features/ai/context.ts
+apps/web/src/features/ai/context.test.ts
+apps/web/src/features/ai/geminiConversationService.ts
+apps/web/src/features/ai/geminiConversationService.test.ts
+apps/web/src/features/ai/useAIReply.ts
+apps/web/src/features/ai/useAIReply.test.tsx
+apps/web/src/features/ai/AIReplyPanel.tsx
+apps/web/src/features/ai/AIReplyPanel.test.tsx
+```
+
+Modified (16 files):
+
+```text
+README.md
+apps/api/.env.example
+apps/api/src/config.ts
+apps/api/src/app.ts
+apps/api/src/app.test.ts
+apps/api/src/server.ts
+apps/web/src/app/services.ts
+apps/web/src/app/styles.css
+apps/web/src/features/ai/service.ts
+apps/web/src/features/ai/mockAIService.ts
+apps/web/src/features/communication/ConversationHistory.tsx
+apps/web/src/features/communication/MessageItem.tsx
+apps/web/src/features/communication/CommunicationFlow.test.tsx
+apps/web/src/pages/CommunicationPage.tsx
+apps/web/src/i18n/en.ts
+apps/web/src/i18n/ar.ts
+```
+
+Removed/replaced (2 files): `apps/web/src/features/ai/useDemoReply.ts` became `useAIReply.ts`; `apps/web/src/features/ai/DemoReplyButton.tsx` became `AIReplyPanel.tsx`. These are feature evolutions, with no unused compatibility wrappers. Manifests, lockfile, `.gitignore`, real `.env`, session store/domain, router, Sign/camera and Voice/Live implementation files are unchanged. Existing Git history is preserved; no commit was created.

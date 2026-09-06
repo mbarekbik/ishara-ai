@@ -1002,16 +1002,73 @@ svg {
   color: #6c5d7c;
 }
 .assistant-actions {
-  border-top: 1px solid var(--line);
-  padding-top: 18px;
-  text-align: center;
+  border-block-start: 1px solid var(--line);
+  padding-block-start: 18px;
+  text-align: start;
 }
-.assistant-actions > .button {
-  font-size: 12px;
+.assistant-actions h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .assistant-actions > p {
-  margin-top: 10px;
-  font-size: 10px;
+  margin-block: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.ai-source {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-block: 14px;
+  min-inline-size: 0;
+}
+.ai-source legend {
+  padding-inline: 4px;
+  font-weight: 600;
+  font-size: 13px;
+}
+.ai-source label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-block-size: 44px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.ai-language {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-block: 14px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.ai-language select {
+  min-block-size: 44px;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  padding-inline: 12px;
+  border: 1px solid #727887;
+  border-radius: 8px;
+  color: #202738;
+  background: white;
+  font: inherit;
+}
+.ai-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-block: 14px;
+}
+.ai-controls .button {
+  min-block-size: 44px;
+}
+.ai-disclosure {
+  color: #3b4652;
 }
 .session-disclosure {
   margin-top: 22px;
