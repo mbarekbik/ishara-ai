@@ -47,6 +47,7 @@ export function MessageItem({
       <div className="message-tags">
         <span>{t(message.inputType)}</span>
         {message.source === "mock" && <span>{t("mock")}</span>}
+        {message.source === "service" && message.inputType === "voice" && <span>{t("transcribed")}</span>}
       </div>
     </li>
   );

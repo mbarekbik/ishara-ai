@@ -6,6 +6,7 @@ export function createMockSpeechService(
 ): SpeechService {
   let index = 0;
   return {
+    kind: "mock",
     async begin({ language, signal }) {
       const phrases = fixtures[language === "ar" ? "ar" : "en"].voice;
       return mockCapture(

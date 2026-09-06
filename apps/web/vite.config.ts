@@ -9,6 +9,8 @@ export default defineConfig({
     proxy: { "/api": "http://127.0.0.1:3001" },
   },
   test: {
+    // Concurrent jsdom startup caused CPU contention and flow-test timeouts.
+    fileParallelism: false,
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     restoreMocks: true,

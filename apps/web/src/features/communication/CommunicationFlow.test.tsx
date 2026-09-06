@@ -12,7 +12,10 @@ import { createMockSpeechService } from "../voice/mockSpeechService";
 import { createMockAIService } from "../ai/mockAIService";
 import type { Services } from "../../app/services";
 import type { RecognitionResult } from "./interaction";
-beforeEach(() => useSessionStore.setState({ session: null }));
+beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  useSessionStore.setState({ session: null });
+});
 function setup(mode = "sign", services?: Services) {
   const defaults = {
     sign: createMockSignService({ delayMs: 5 }),
@@ -33,7 +36,7 @@ function setup(mode = "sign", services?: Services) {
       </MemoryRouter>
     </LocaleProvider>,
   );
-  return userEvent.setup();
+  return userEvent.setup({ advanceTimers: vi.advanceTimersByTimeAsync });
 }
 test("sign and voice share a session; sender choice is independent; assistant is explicit", async () => {
   const media = vi.fn();

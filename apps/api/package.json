@@ -7,11 +7,14 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "typecheck": "tsc -p tsconfig.check.json",
+    "test": "vitest run",
+    "verify:live": "tsx scripts/verify-live.ts"
   },
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "@google/genai": "2.21.0",
+    "express-rate-limit": "8.7.0"
   },
   "devDependencies": {
     "tsx": "^4.20.6",

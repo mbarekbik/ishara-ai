@@ -26,6 +26,7 @@ function SessionView({
   const { t } = useTranslation();
   const [services] = useState(() => suppliedServices ?? createServices());
   const [confirm, setConfirm] = useState(false);
+  const [interactionRevision, setInteractionRevision] = useState(0);
   const resetSession = useSessionStore((state) => state.reset);
   const reset = () => {
     resetSession();
@@ -49,7 +50,10 @@ function SessionView({
         <Button
           ref={newButton}
           variant="secondary"
-          onClick={() => (session.messages.length ? setConfirm(true) : reset())}
+          onClick={() => {
+            setInteractionRevision((revision) => revision + 1);
+            if (session.messages.length) setConfirm(true); else reset();
+          }}
         >
           {t("newConversation")}
         </Button>
@@ -82,11 +86,11 @@ function SessionView({
           {t("sessionPrivacy")}
         </span>
       </div>
-      <div className="communication-grid" key={mode}>
+      <div className="communication-grid" key={`${mode}:${interactionRevision}`}>
         {mode === "sign" ? (
           <SignPanel session={session} service={services.sign} />
         ) : (
-          <VoicePanel session={session} service={services.speech} />
+          <VoicePanel session={session} service={services.speech} realService={services.realSpeech} />
         )}
         <ConversationHistory session={session} ai={services.ai} />
       </div>
