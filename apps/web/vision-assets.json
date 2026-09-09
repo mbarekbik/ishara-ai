@@ -1,0 +1,16 @@
+{
+  "packageVersion": "1.0.1",
+  "wasmPath": "mediapipe/tasks-vision/1.0.1/wasm",
+  "model": {
+    "path": "models/holistic-landmarker/float16/1/holistic_landmarker.task",
+    "url": "https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/1/holistic_landmarker.task",
+    "sha256": "e2dab61191e2dcd0a15f943d8e3ed1dce13c82dfa597b9dd39f562975a50c3f8",
+    "bytes": 13683609
+  },
+  "license": "Apache-2.0",
+  "modelCards": {
+    "pose": "https://storage.googleapis.com/mediapipe-assets/Model%20Card%20BlazePose%20GHUM%203D.pdf",
+    "face": "https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MediaPipe%20Face%20Mesh%20V2.pdf",
+    "hands": "https://storage.googleapis.com/mediapipe-assets/Model%20Card%20Hand%20Tracking%20(Lite_Full)%20with%20Fairness%20Oct%202021.pdf"
+  }
+}

@@ -13,3 +13,6 @@ dist/
 .env.*.local
 coverage/
 .DS_Store
+.npm-cache/
+apps/web/public/mediapipe/
+apps/web/.vision-check/

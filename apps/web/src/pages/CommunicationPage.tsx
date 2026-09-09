@@ -88,7 +88,7 @@ function SessionView({
       </div>
       <div className="communication-grid" key={`${mode}:${interactionRevision}`}>
         {mode === "sign" ? (
-          <SignPanel session={session} service={services.sign} />
+          <SignPanel session={session} service={services.sign} createTracker={services.createTracker} />
         ) : (
           <VoicePanel session={session} service={services.speech} realService={services.realSpeech} />
         )}

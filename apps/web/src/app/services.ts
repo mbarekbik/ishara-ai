@@ -5,6 +5,8 @@ import { createGeminiLiveSpeechService } from "../features/voice/geminiLiveSpeec
 import type { SpeechService } from "../features/voice/service";
 import { createGeminiConversationService } from "../features/ai/geminiConversationService";
 import type { AIService } from "../features/ai/service";
+import { createLandmarkTracker } from "../features/sign/tracking/workerClient";
+import type { LandmarkTrackerFactory } from "../features/sign/tracking/service";
 // One composition point; create fresh adapters for each session.
 export function createServices(): Services {
   return {
@@ -13,6 +15,7 @@ export function createServices(): Services {
     realSpeech: createGeminiLiveSpeechService(),
     ai: createMockAIService(),
     realAI: createGeminiConversationService(),
+    createTracker: createLandmarkTracker,
   };
 }
 export interface Services {
@@ -21,4 +24,5 @@ export interface Services {
   realSpeech?: SpeechService;
   ai: AIService;
   realAI?: AIService;
+  createTracker?: LandmarkTrackerFactory;
 }

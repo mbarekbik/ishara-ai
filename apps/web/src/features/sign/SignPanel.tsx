@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Button } from "../../components/Button";
 import { Icon } from "../../components/Icon";
 import { StatusNotice } from "../../components/StatusNotice";
@@ -11,17 +11,25 @@ import { CaptureControls } from "../communication/CaptureControls";
 import { ParticipantSelector } from "../communication/ParticipantSelector";
 import type { CommunicationSession } from "../communication/model";
 import type { SignRecognitionService } from "./service";
+import type { LandmarkTrackerFactory } from "./tracking/service";
+import { useLandmarkTracking } from "./tracking/useLandmarkTracking";
+import { LandmarkOverlay } from "./tracking/LandmarkOverlay";
+import { TrackingStatus } from "./tracking/TrackingStatus";
 export function SignPanel({
   session,
   service,
+  createTracker,
 }: {
   session: CommunicationSession;
   service: SignRecognitionService;
+  createTracker?: LandmarkTrackerFactory;
 }) {
   const { locale, t } = useTranslation();
   const [sender, setSender] = useState("participant-1");
   const [demo, setDemo] = useState(false);
   const video = useRef<HTMLVideoElement | null>(null);
+  const [videoNode, setVideoNode] = useState<HTMLVideoElement | null>(null);
+  const tracking = useLandmarkTracking({ video: videoNode, createTracker });
   const interaction = useSignInteraction(
     service,
     session.id,
@@ -29,7 +37,13 @@ export function SignPanel({
     locale,
     () => video.current,
   );
-  const camera = useCamera(interaction.cancel);
+  const { cancel: cancelSign } = interaction;
+  const { stop: stopTracking } = tracking;
+  const release = useCallback(() => {
+    cancelSign();
+    stopTracking();
+  }, [cancelSign, stopTracking]);
+  const camera = useCamera(release);
   return (
     <section className="interaction-panel">
       <div className="panel-title">
@@ -49,7 +63,12 @@ export function SignPanel({
       />
       <div className={`capture-stage ${demo ? "demo-stage" : ""}`}>
         {camera.stream ? (
-          <CameraPreview stream={camera.stream} videoRef={video} />
+          <>
+            <CameraPreview stream={camera.stream} videoRef={video} onVideo={setVideoNode} />
+            {(tracking.status === "ready" || tracking.status === "tracking") && (
+              <LandmarkOverlay video={videoNode} frameRef={tracking.frameRef} />
+            )}
+          </>
         ) : (
           <div className="stage-empty">
             <span className="stage-icon">
@@ -96,6 +115,9 @@ export function SignPanel({
         <StatusNotice>{t("cameraRequesting")}</StatusNotice>
       )}
       {camera.error && <StatusNotice error>{t(camera.error)}</StatusNotice>}
+      {camera.stream && <TrackingStatus {...tracking} />}
+      <p className="small muted tracking-disclosure">{t("trackingDisclosure")}</p>
+      <p className="small sign-demo-label">{t("signRecognitionDemo")}</p>
       <CaptureControls
         mode="sign"
         {...interaction}

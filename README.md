@@ -1,6 +1,6 @@
 # Ishara AI
 
-An English/Arabic, browser-first communication prototype for GatewayHacks 2026’s Accessibility & Health track. Sign and Voice share one in-memory conversation. Scope 2 adds real Google Gemini Voice transcription. Scope 3 adds an explicit, context-aware text assistant; Sign recognition, Voice Demo, and the fixed assistant Demo remain available.
+An English/Arabic, browser-first communication prototype for GatewayHacks 2026’s Accessibility & Health track. Sign and Voice share one in-memory conversation. Scope 2 adds real Google Gemini Voice transcription. Scope 3 adds an explicit, context-aware text assistant. Scope 4 adds browser-local camera landmark tracking; Sign recognition, Voice Demo, and the fixed assistant Demo remain available.
 
 ## Run locally
 
@@ -131,7 +131,7 @@ These manual items must be verified before claiming the full device/accessibilit
 
 ## Scope guard
 
-Scopes 2 and 3 add real microphone transcription and explicit communication assistance while preserving the simulated features. MediaPipe, ML inference, signing avatars, Darija, authentication, persistence, clinical recommendations, remote sessions, media uploads, autonomous actions, speech output and distributed infrastructure remain outside this work. No Scope 4 implementation is included.
+Scopes 2 and 3 add real microphone transcription and explicit communication assistance. Scope 4 adds local MediaPipe geometry tracking while preserving the simulated Sign recognition flow. Sign/gesture classification, sequence buffering/training, signing avatars, Darija, authentication, persistence, clinical recommendations, remote sessions, media uploads, autonomous actions, speech output and distributed infrastructure remain outside this work. No Scope 5 implementation is included.
 
 ## Scope 2 — Real Voice transcription
 
@@ -329,3 +329,141 @@ apps/web/src/i18n/ar.ts
 ```
 
 Removed/replaced (2 files): `apps/web/src/features/ai/useDemoReply.ts` became `useAIReply.ts`; `apps/web/src/features/ai/DemoReplyButton.tsx` became `AIReplyPanel.tsx`. These are feature evolutions, with no unused compatibility wrappers. Manifests, lockfile, `.gitignore`, real `.env`, session store/domain, router, Sign/camera and Voice/Live implementation files are unchanged. Existing Git history is preserved; no commit was created.
+
+## Scope 4 — Camera landmarks
+
+Sign mode now consumes the existing camera stream through one dedicated MediaPipe Holistic module worker. It emits a plain `LandmarkFrame` with 33 pose, 478 face, and 21 landmarks per hand, and draws a Canvas overlay. This is geometry tracking, not sign recognition or identity recognition. No frame, landmark, or tracking status becomes a conversation message. Existing Sign Start/Stop still produces explicitly labelled mock phrases.
+
+### Setup and commands
+
+Run these from `C:\Users\peaqock\ishara-ai`:
+
+```powershell
+npm ci
+npm run dev
+```
+
+The application is at `http://127.0.0.1:5173`; the API remains on `http://127.0.0.1:3001`. To start them separately, use `npm run dev -w @ishara/api` and `npm run dev -w @ishara/web` in separate terminals. Do not start a duplicate dev server if those ports are already occupied by this application.
+
+Scope 4 needs no new API configuration or secret. The API's existing `.env` loader and Git exclusions remain unchanged. No environment secret was read or changed for this feature. Sign tracking and the mock flow can run with only the web workspace started.
+
+`@mediapipe/tasks-vision` is pinned to `1.0.1`. The official float16/1 Holistic model is stored under the web public assets with model cards/provenance and Apache 2.0 notices. `vision-assets.json` records its exact size and SHA-256. `prepare:vision`, called before web dev/build, verifies that model and copies the matching module WASM loader/binary from the installed package. It performs no network download. Generated WASM copies and `.vision-check` output are ignored; the model, manifest, notices, and preparation script must be included in the checkout. Normal production builds exclude the operator verification page.
+
+### Controls, ownership, and coordinates
+
+- Sign entry leaves the camera off. Enable camera requests video only. Tracking starts after a decoded frame exists.
+- Pause tracking releases the worker/detector but keeps the camera preview active. Resume creates a fresh run. Technical failures require explicit Retry.
+- Camera Off, camera-free Demo, mode change, navigation, New Conversation, hidden page, and unmount release tracking. The existing camera hook remains the only stream owner.
+- Returning to a visible page or choosing Keep after New Conversation never restarts the camera automatically.
+- A 15 FPS submission cap and one in-flight bitmap/inference prevent a backlog. Input is downsampled proportionally to at most 960 pixels on the long edge. These limits do not promise achieved FPS.
+- Media timestamps are milliseconds, strictly increasing per run; run IDs indicate processing continuity, never identity. Empty detections remain valid frames. There is no sequence history or application smoothing.
+- Inference and domain coordinates are unmirrored. Left/right are anatomical. Only the contained video and its overlay presentation are mirrored; RTL does not swap anatomy.
+- The full face topology is retained in data; the UI draws contours. Image depth is component-relative; world landmarks are model estimates in pose-centered meters, with hand wrists aligned by Holistic. No calibration/measurement accuracy is claimed.
+- `onLandmarkFrame(frame)` on the tracking hook is the optional future-consumer seam. It currently has no recognition, persistence, or upload consumer.
+
+### Privacy and production hosting
+
+Camera frames, transient bitmaps, and the latest landmarks stay in browser memory. Scope 4 adds no media endpoint, cloud inference, recordings, analytics, or payload logs. Existing explicit Gemini Voice/AI flows remain separate.
+
+MediaPipe includes performance telemetry. Self-hosting its assets alone does not disable that telemetry. The dedicated tracking worker must receive this exact enforcing HTTP response header:
+
+```http
+Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; worker-src 'none'
+```
+
+Vite dev and preview apply it only to the tracking worker. Production static hosting/reverse proxy must apply the same header to `/assets/vision/landmarkTracking.worker-*.js` (include the deployment base path if applicable), while preserving same-origin model/WASM requests and SPA routing. Serve WASM as `application/wasm`. Do not apply this worker policy to the page, Voice worklet, or Gemini connections.
+
+Before creating a detector, the worker checks its own response header and asset availability. Missing policy produces a localized privacy-protection error and leaves the camera/mock demo usable; it never silently enables telemetry on an incorrectly configured static deployment. Asset failures are reported separately and do not trigger an unnecessary CPU retry. GPU initialization failures permit one fresh CPU worker attempt. No broad `unsafe-eval`, remote model/CDN fallback, or SDK monkey-patch is added.
+
+### Manual runtime verification
+
+The operator page uses only a synthetic blank image, no camera, microphone, Gemini key, or personal data:
+
+```powershell
+npm run build:vision-check -w @ishara/web
+npm run preview:vision-check -w @ishara/web
+```
+
+Open `http://127.0.0.1:4174/verification/vision.html` in desktop Chrome and select **Run worker verification**. Expect GPU and CPU initialization, a successful empty `human-553-v1` inference, and disposal. The GPU check waits 65 seconds to cover the SDK telemetry interval. Inspect DevTools Network/worker console: external telemetry must be blocked by CSP, including during close. Model/WASM requests must stay same-origin. An equivalent dev check is at `http://127.0.0.1:5173/verification/vision.html`. A synthetic pass verifies runtime compatibility, not tracking quality on real people.
+
+### Manual camera acceptance checklist
+
+1. Open `http://127.0.0.1:5173/communicate?mode=sign`. Confirm camera off, then Enable camera and allow access. Expect the existing preview, loading feedback, and active tracking.
+2. Move both hands/fingers, then head, shoulders, and elbows. Verify hand, face, and pose overlay alignment. Raise each anatomical hand separately, then cross hands and re-enter after occlusion. Geometry accuracy and association require this real-person check.
+3. Move hands/person out of view and return. Expect framing guidance without a crash or a history message.
+4. Pause/Resume. Pause clears the overlay and leaves the camera on. Start/Stop Signing still appends one simulated phrase; tracking itself appends none.
+5. Switch Sign → Voice → Sign. Verify camera indicator and tracking stop, history stays, and camera remains off until enabled. Repeat with navigation, hidden tab, Camera Off, camera-free Demo, and New Conversation → Keep.
+6. Deny permission and test absent/busy hardware. Camera-free Demo must still work. Cancel while permission or model initialization is pending, then ensure late results do not restart anything.
+7. Try narrow layout, 200% zoom, English/Arabic interfaces, keyboard-only controls, and a screen reader. Verify alignment, focus, restrained status announcements, and accessible errors. Obtain Arabic-speaker copy review before public use.
+8. Verify the existing real/Demo Voice and AI flows independently. Scope 4 does not resolve previously recorded Scope 3 quota or live-acceptance limitations.
+9. Run two minutes of ordinary tracking, ten minutes of stability, and twenty mode/enable-disable cycles. Record device/browser/delegate, latency/cadence, UI responsiveness, memory/worker trends, and qualitative heat/CPU impact. No resource count should accumulate across disposal cycles.
+10. Test Android Chrome and iOS Safari over trusted HTTPS when available. Mobile, thermal, physical-device, and screen-reader results must be recorded separately from automated tests.
+
+### Verification and resumption record
+
+The resumed working tree already contained the pinned assets, worker/client, typed adapter, frame scheduler, tracking hook, overlay/geometry, Sign integration, English/Arabic controls, and focused regression tests. Git history and all correct existing changes were preserved; no reset, repository copy, or commit was made.
+
+The final completion pass corrects asset-failure classification, enforces deployment privacy checks before detector construction, fixes the stable camera-release callback's lint dependencies, and adds this setup/privacy/manual-verification handoff. Automated checks use synthetic inputs/fake workers and no credentials. Real browser GPU/CPU inference, camera quality, long-run performance, and device/accessibility acceptance are left for manual verification at the user's request. An earlier in-app browser attempt could not attach, so no real camera or worker-runtime success is claimed here.
+
+Automated validation on September 9, 2026: `npm run typecheck`, `npm run lint`, and `npm run build` passed. The full `npm test` run passed 289 tests (102 API + 187 web); the final two accessibility-status tests also passed in a targeted rerun, covering 291 distinct tests overall. Targeted coverage also verifies the final stale-guidance clearing and Sign panel behavior. `build:vision-check` passed. An ephemeral production-preview HTTP check passed for worker GET/HEAD CSP, the absence of that restrictive policy on the page/Voice worklet, local model delivery and size, WASM MIME, and direct SPA route fallback. `git diff --check` passed. Environment files remain ignored and untouched.
+
+Before resumption, the remaining gaps were final review fixes, README/manual handoff, and consolidated validation; there were no unfinished stubs requiring a rewrite. The completion pass also unmounts the overlay while paused/failed to stop its animation loop and clears stale detection guidance. All modifications remain uncommitted in the existing repository.
+
+### Scope 4 file inventory
+
+The following lists describe the cumulative Scope 4 working-tree changes relative to `fec548e`, including the implementation preserved at resumption. Generated WASM/build/cache files are excluded.
+
+Modified (14):
+
+```text
+C:/Users/peaqock/ishara-ai/.gitignore
+C:/Users/peaqock/ishara-ai/README.md
+C:/Users/peaqock/ishara-ai/apps/web/package.json
+C:/Users/peaqock/ishara-ai/apps/web/src/app/services.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/app/styles.css
+C:/Users/peaqock/ishara-ai/apps/web/src/features/communication/CommunicationFlow.test.tsx
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/CameraPreview.tsx
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/SignPanel.tsx
+C:/Users/peaqock/ishara-ai/apps/web/src/i18n/ar.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/i18n/en.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/pages/CommunicationPage.tsx
+C:/Users/peaqock/ishara-ai/apps/web/vite.config.ts
+C:/Users/peaqock/ishara-ai/eslint.config.js
+C:/Users/peaqock/ishara-ai/package-lock.json
+```
+
+Created (31):
+
+```text
+C:/Users/peaqock/ishara-ai/apps/web/public/licenses/mediapipe/LICENSE
+C:/Users/peaqock/ishara-ai/apps/web/public/models/holistic-landmarker/float16/1/NOTICE.md
+C:/Users/peaqock/ishara-ai/apps/web/public/models/holistic-landmarker/float16/1/holistic_landmarker.task
+C:/Users/peaqock/ishara-ai/apps/web/scripts/prepare-vision-assets.mjs
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/CameraPreview.test.tsx
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/SignPanel.test.tsx
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/LandmarkOverlay.test.tsx
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/LandmarkOverlay.tsx
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/TrackingStatus.test.tsx
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/TrackingStatus.tsx
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/frameScheduler.test.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/frameScheduler.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/landmarkRenderer.test.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/landmarkRenderer.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/landmarkTracking.worker.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/mediapipeHolisticAdapter.test.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/mediapipeHolisticAdapter.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/model.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/overlayGeometry.test.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/overlayGeometry.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/runtimeAssets.test.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/runtimeAssets.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/service.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/topology.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/useLandmarkTracking.test.tsx
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/useLandmarkTracking.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/workerClient.test.ts
+C:/Users/peaqock/ishara-ai/apps/web/src/features/sign/tracking/workerClient.ts
+C:/Users/peaqock/ishara-ai/apps/web/verification/vision.html
+C:/Users/peaqock/ishara-ai/apps/web/verification/vision.ts
+C:/Users/peaqock/ishara-ai/apps/web/vision-assets.json
+```

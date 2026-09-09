@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { LocaleProvider } from "../../i18n/LocaleProvider";
@@ -13,9 +13,14 @@ import { createMockAIService } from "../ai/mockAIService";
 import type { Services } from "../../app/services";
 import type { RecognitionResult } from "./interaction";
 import { AI_LIMITS, type AIService } from "../ai/service";
+import { startFrameScheduler } from "../sign/tracking/frameScheduler";
+import type { LandmarkTracker } from "../sign/tracking/service";
+vi.mock("../sign/tracking/frameScheduler", () => ({ startFrameScheduler: vi.fn() }));
+vi.mock("../sign/tracking/LandmarkOverlay", () => ({ LandmarkOverlay: () => null }));
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   useSessionStore.setState({ session: null });
+  vi.mocked(startFrameScheduler).mockReset();
 });
 function setup(mode = "sign", services?: Services) {
   const defaults = {
@@ -284,4 +289,63 @@ test("real assistant attribution appears once in shared history and keeps prior 
   expect(history.getByText("AI-generated reply")).toBeVisible();
   expect(history.getByText("Where do you feel pain?")).toBeVisible();
   expect(screen.getByRole("button", { name: "Ask Ishara AI" })).toBeDisabled();
+});
+
+test.each(["reset", "mode"])("%s releases tracking and camera while preserving completed shared history", async (action) => {
+  vi.stubGlobal("isSecureContext", true);
+  vi.spyOn(document, "hidden", "get").mockReturnValue(false);
+  const track = new EventTarget() as EventTarget & { stop: () => void; readyState: string };
+  track.stop = vi.fn();
+  track.readyState = "live";
+  const stream = { getTracks: () => [track], getVideoTracks: () => [track] } as unknown as MediaStream;
+  const media = vi.fn().mockResolvedValue(stream);
+  vi.stubGlobal("navigator", { ...navigator, mediaDevices: { getUserMedia: media } });
+  const tracker = {
+    initialize: vi.fn<LandmarkTracker["initialize"]>().mockResolvedValue(),
+    detect: vi.fn<LandmarkTracker["detect"]>(),
+    dispose: vi.fn<LandmarkTracker["dispose"]>().mockResolvedValue(),
+  };
+  const createTracker = vi.fn(() => tracker);
+  const stopScheduling = vi.fn();
+  vi.mocked(startFrameScheduler).mockReturnValue(stopScheduling);
+  const user = setup("voice", {
+    sign: createMockSignService({ delayMs: 1 }),
+    speech: createMockSpeechService({ delayMs: 1 }),
+    ai: createMockAIService({ delayMs: 1 }),
+    createTracker,
+  });
+  await user.click(await screen.findByRole("button", { name: "Start Speaking" }));
+  await user.click(screen.getByRole("button", { name: "Stop Speaking" }));
+  await waitFor(() => expect(useSessionStore.getState().session!.messages).toHaveLength(1));
+  const sessionId = useSessionStore.getState().session!.id;
+  await user.click(screen.getByRole("link", { name: "Sign Language" }));
+  await user.click(screen.getByRole("button", { name: "Enable camera" }));
+  const video = document.querySelector("video")!;
+  Object.defineProperties(video, {
+    readyState: { configurable: true, value: 2 },
+    videoWidth: { configurable: true, value: 640 },
+    videoHeight: { configurable: true, value: 480 },
+  });
+  fireEvent.loadedData(video);
+  await waitFor(() => expect(startFrameScheduler).toHaveBeenCalledOnce());
+  if (action === "reset") {
+    await user.click(screen.getByRole("button", { name: "New conversation" }));
+    // Cleanup happens before the user decides whether to discard completed history.
+    expect(track.stop).toHaveBeenCalledOnce();
+    expect(tracker.dispose).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole("button", { name: "Keep conversation" }));
+  } else {
+    await user.click(screen.getByRole("link", { name: "Voice / Speech" }));
+    expect(track.stop).toHaveBeenCalledOnce();
+    expect(tracker.dispose).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole("link", { name: "Sign Language" }));
+  }
+  expect(stopScheduling).toHaveBeenCalledOnce();
+  expect(useSessionStore.getState().session!.id).toBe(sessionId);
+  expect(useSessionStore.getState().session!.messages).toHaveLength(1);
+  expect(within(screen.getByRole("list")).getByText("Where do you feel pain?")).toBeVisible();
+  expect(document.querySelector("video")).toBeNull();
+  expect(screen.getByRole("button", { name: "Enable camera" })).toBeEnabled();
+  expect(createTracker).toHaveBeenCalledOnce();
+  expect(media).toHaveBeenCalledOnce();
 });
