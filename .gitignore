@@ -16,3 +16,6 @@ coverage/
 .npm-cache/
 apps/web/public/mediapipe/
 apps/web/.vision-check/
+
+# Private Scope 5 source data and generated audit/training material.
+/data/scope5/

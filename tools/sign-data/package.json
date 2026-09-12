@@ -1,0 +1,19 @@
+{
+  "name": "@ishara/sign-data-audit",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.16.0" },
+  "scripts": {
+    "export": "node --experimental-strip-types src/export-audit.ts",
+    "verify": "node --experimental-strip-types src/verify-audit.ts",
+    "curate:smoke5": "node --experimental-strip-types src/curate-smoke5.ts",
+    "verify:smoke5": "node --experimental-strip-types src/curate-smoke5.ts --verify",
+    "extract:smoke5": "node --experimental-strip-types src/extract-smoke5.ts",
+    "verify:landmarks": "node --experimental-strip-types src/extract-smoke5.ts --verify",
+    "preprocess:smoke5": "node --experimental-strip-types src/preprocess-smoke5.ts",
+    "verify:features": "node --experimental-strip-types src/preprocess-smoke5.ts --verify",
+    "test:preprocessing": "node --experimental-strip-types --test src/preprocessing.test.ts src/featureFiles.test.ts",
+    "test": "node --experimental-strip-types --test src/*.test.ts",
+    "typecheck": "node ../../node_modules/typescript/bin/tsc -p tsconfig.json"
+  }
+}

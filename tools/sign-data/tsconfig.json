@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "types": ["node"],
+    "lib": ["ES2023"],
+    "erasableSyntaxOnly": false
+  },
+  "include": ["src/**/*.ts"]
+}
