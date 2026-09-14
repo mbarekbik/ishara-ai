@@ -154,10 +154,17 @@ async function startAssetServer(allowed: Map<string, string>, workerPolicy: stri
   return { server, origin };
 }
 
-export async function createExtractionBrowser(): Promise<ExtractionBrowser> {
-  await assertNoLinks(REPOSITORY_ROOT, DERIVED_ROOT);
-  await mkdir(DERIVED_ROOT, { recursive: true });
-  const runtimeRoot = await mkdtemp(join(DERIVED_ROOT, ".runtime-"));
+export async function createExtractionBrowser(options: { diagnosticRunId?: string; datasetVersion?: 'smoke5-v2' } = {}): Promise<ExtractionBrowser> {
+  // Diagnostics must not put browser scratch files in an already accepted dataset.
+  if (options.diagnosticRunId !== undefined && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(options.diagnosticRunId)) throw new Error("Invalid diagnostic run identifier");
+  if (options.datasetVersion !== undefined && options.datasetVersion !== 'smoke5-v2') throw new Error('Unsupported accepted extraction version');
+  if (options.diagnosticRunId !== undefined && options.datasetVersion !== undefined) throw new Error('Diagnostic and accepted extraction locations are exclusive');
+  const runtimeParent = options.diagnosticRunId !== undefined
+    ? boundedPath(resolve(REPOSITORY_ROOT, "data/scope5/diagnostics"), options.diagnosticRunId)
+    : options.datasetVersion === 'smoke5-v2' ? boundedPath(REPOSITORY_ROOT, 'data/scope5/derived/mosl-v1/smoke5-v2/landmarks-v1') : DERIVED_ROOT;
+  await assertNoLinks(REPOSITORY_ROOT, runtimeParent);
+  await mkdir(runtimeParent, { recursive: true });
+  const runtimeRoot = await mkdtemp(join(runtimeParent, ".runtime-"));
   let child: ChildProcess | undefined;
   let server: Server | undefined;
   let protocol: Protocol | undefined;
@@ -185,7 +192,7 @@ export async function createExtractionBrowser(): Promise<ExtractionBrowser> {
       if (server) { server.closeAllConnections(); await new Promise<void>(resolveClose => server!.close(() => resolveClose())); }
       // Delete only the exact mkdtemp directory this invocation owns. Never remove
       // the derived dataset, another run's profile, or any source directory.
-      if (dirname(runtimeRoot) !== DERIVED_ROOT || !/^\.runtime-[A-Za-z0-9]+$/u.test(basename(runtimeRoot))) throw new Error("Unsafe browser cleanup target");
+      if (dirname(runtimeRoot) !== runtimeParent || !/^\.runtime-[A-Za-z0-9]+$/u.test(basename(runtimeRoot))) throw new Error("Unsafe browser cleanup target");
       await assertNoLinks(REPOSITORY_ROOT, runtimeRoot);
       await rm(runtimeRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     })();

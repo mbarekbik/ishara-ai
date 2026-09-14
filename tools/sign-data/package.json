@@ -12,6 +12,10 @@
     "verify:landmarks": "node --experimental-strip-types src/extract-smoke5.ts --verify",
     "preprocess:smoke5": "node --experimental-strip-types src/preprocess-smoke5.ts",
     "verify:features": "node --experimental-strip-types src/preprocess-smoke5.ts --verify",
+    "compose:smoke5-v2": "node --experimental-strip-types src/compose-smoke5-v2.ts",
+    "verify:smoke5-v2": "node --experimental-strip-types src/compose-smoke5-v2.ts --verify",
+    "freeze:training-protocol": "node --experimental-strip-types src/freeze-training-protocol.ts",
+    "verify:training-protocol": "node --experimental-strip-types src/freeze-training-protocol.ts --verify",
     "test:preprocessing": "node --experimental-strip-types --test src/preprocessing.test.ts src/featureFiles.test.ts",
     "test": "node --experimental-strip-types --test src/*.test.ts",
     "typecheck": "node ../../node_modules/typescript/bin/tsc -p tsconfig.json"

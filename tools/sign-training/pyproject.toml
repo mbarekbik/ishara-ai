@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools==82.0.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ishara-sign-training"
+version = "0.1.0"
+description = "Read-only frozen engineering tensor and LOOCV access"
+requires-python = ">=3.13,<3.14"
+dependencies = ["numpy==2.3.2"]
+
+[project.scripts]
+ishara-sign-data = "ishara_sign_training.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
